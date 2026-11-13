@@ -1,6 +1,6 @@
 # Vector Soar
 
-An original, Joust-inspired aerial combat arcade game for macOS and the Fun City launcher, built with SwiftUI and SpriteKit. Procedural geometric flightcraft, no borrowed graphics, trademarks, music, or arcade ROMs.
+An original, Joust-inspired aerial combat arcade game for macOS and the Fun City launcher, built with SwiftUI and SpriteKit. Procedural vector bird silhouettes, no borrowed graphics, trademarks, music, or arcade ROMs.
 
 ## First playable prototype
 
@@ -9,9 +9,10 @@ An original, Joust-inspired aerial combat arcade game for macOS and the Fun City
 - Hold **Shift** for a gravity-assisted dive.
 - Hit enemy craft from above to defeat them and raise combo multipliers.
 - Collect dropped energy cores for bonus points.
+- Play as a larger broad-winged **eagle** against varied **falcon**, **hawk**, and **owl** enemies with distinct movement profiles.
 - Survive enemy waves; three lives; escalating enemy speed and elite flyers.
 - **Return** starts/restarts, **P** pauses.
-- Right-side flight telemetry, faint environmental parallax, responsive particle explosions, original synthesized sound effects, more detailed mechanical craft, layered skyline and mountain silhouettes, and persistent local high score.
+- Right-side flight telemetry, faint environmental parallax, responsive particle explosions, original synthesized sound effects, distinct bird silhouettes, rocky flat-topped ledges with jagged mineral undersides, layered cavern walls and stalactites, occasional quiet cave-drip ambience, and persistent local high score.
 
 ## Build and play
 
