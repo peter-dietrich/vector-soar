@@ -422,7 +422,7 @@ final class SoarScene: SKScene {
         }
         for b in bolts {
             let tip = CGPoint(x:b.x,y:b.y)
-            line([CGPoint(x:b.x-b.vx.signum()*19,y:b.y),tip],
+            line([CGPoint(x:b.x-(b.vx >= 0 ? 19 : -19),y:b.y),tip],
                  color:cyan,width:3.5)
             let tipGlow = SKShapeNode(circleOfRadius:4.5)
             tipGlow.position = tip; tipGlow.fillColor = .white
