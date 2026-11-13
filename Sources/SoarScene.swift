@@ -6,6 +6,11 @@ final class SoarScene: SKScene {
     private let effects = SKNode()
     private var player = SoarFighter(x: 550, y: 280)
     private var enemies: [SoarFighter] = []
+    private struct Bolt { var x: CGFloat; var y: CGFloat; var vx: CGFloat; var ttl: CGFloat }
+    private var bolts: [Bolt] = []
+    private var firing = false
+    private var shotCooldown: CGFloat = 0
+    private var worldClock: CGFloat = 0
     private var cores: [(x: CGFloat, y: CGFloat, ttl: CGFloat)] = []
     private var wave = 1
     private var score = 0
@@ -46,6 +51,7 @@ final class SoarScene: SKScene {
         case 49:
             if mode == 1 && !event.isARepeat { flap() }
         case 56, 60: dive = true
+        case 3: firing = true; if mode == 1 { fire() }
         case 36, 76:
             if mode == 0 || mode == 3 { restart() }
             else if mode == 2 { mode = 1 }
@@ -60,18 +66,19 @@ final class SoarScene: SKScene {
         case 123, 0: left = false
         case 124, 2: right = false
         case 56, 60: dive = false
+        case 3: firing = false
         default: break
         }
     }
     override func resignFirstResponder() -> Bool {
-        left = false; right = false; dive = false
+        left = false; right = false; dive = false; firing = false
         return super.resignFirstResponder()
     }
 
     private func restart() {
         score = 0; lives = 3; wave = 1; combo = 0
         player = SoarFighter(x: 550, y: 335)
-        cores.removeAll()
+        cores.removeAll(); bolts.removeAll(); shotCooldown = 0; worldClock = 0
         invulnerable = 1.8
         mode = 1
         nextWaveDelay = -1
@@ -91,11 +98,22 @@ final class SoarScene: SKScene {
         }
         banner = "WAVE \(wave)  //  AIRSPACE CONTESTED"
         bannerTimer = 2.2
+        SoarAudio.shared.play(.wave)
     }
     private func flap() {
         player.vy = min(SoarRules.maxVertical, max(player.vy, -80) + SoarRules.flapImpulse)
         player.flapPhase = 0.24
+        SoarAudio.shared.play(.flap)
         spark(at: CGPoint(x: player.x, y: player.y - 16), color: cyan, count: 5)
+    }
+    private func fire() {
+        guard mode == 1 && shotCooldown <= 0 && bolts.count < 14 else { return }
+        shotCooldown = 0.17
+        bolts.append(Bolt(x: player.x + player.facing * 27, y: player.y + 2,
+                          vx: player.facing * 610 + player.vx * 0.24, ttl: 0.90))
+        spark(at: CGPoint(x: player.x + player.facing * 27, y: player.y + 2),
+              color: cyan, count: 3)
+        SoarAudio.shared.play(.shoot)
     }
     override func update(_ currentTime: TimeInterval) {
         let dt = CGFloat(min(1.0 / 25.0, max(0, lastTime == 0 ? 0 : currentTime - lastTime)))
@@ -104,6 +122,9 @@ final class SoarScene: SKScene {
         redraw()
     }
     private func step(_ dt: CGFloat) {
+        worldClock += dt
+        shotCooldown = max(0, shotCooldown - dt)
+        if firing && shotCooldown <= 0 { fire() }
         invulnerable = max(0, invulnerable - dt)
         bannerTimer = max(0, bannerTimer - dt)
         player.flapPhase = max(0, player.flapPhase - dt)
@@ -134,6 +155,34 @@ final class SoarScene: SKScene {
             move(&enemies[i], dt: dt)
         }
 
+        for index in bolts.indices.reversed() {
+            bolts[index].x += bolts[index].vx * dt
+            bolts[index].ttl -= dt
+            if bolts[index].ttl <= 0 || bolts[index].x < -30 || bolts[index].x > SoarRules.width + 30 {
+                bolts.remove(at: index)
+                continue
+            }
+            var impact = false
+            for i in enemies.indices where enemies[i].alive {
+                let dx = bolts[index].x - enemies[i].x
+                let dy = bolts[index].y - enemies[i].y
+                if dx * dx + dy * dy < 27 * 27 {
+                    enemies[i].alive = false
+                    let points = 130 * (enemies[i].kind + 1)
+                    score += points
+                    cores.append((enemies[i].x, enemies[i].y, 11))
+                    spark(at: CGPoint(x: enemies[i].x, y: enemies[i].y),
+                          color: amber, count: 25)
+                    SoarAudio.shared.play(.destroy)
+                    banner = "TARGET DOWN  +\\(points)"
+                    bannerTimer = 0.7
+                    impact = true
+                    break
+                }
+            }
+            if impact { bolts.remove(at: index) }
+        }
+
         for i in enemies.indices where enemies[i].alive {
             let enemy = enemies[i]
             let dx = player.x - enemy.x
@@ -147,6 +196,7 @@ final class SoarScene: SKScene {
                     cores.append((enemy.x, enemy.y, 11))
                     player.vy = max(player.vy, 135)
                     spark(at: CGPoint(x: enemy.x, y: enemy.y), color: amber, count: 22)
+                    SoarAudio.shared.play(.destroy)
                     banner = "AIR SUPERIORITY  +\(points)"
                     bannerTimer = 0.85
                 } else if invulnerable == 0 {
@@ -163,6 +213,7 @@ final class SoarScene: SKScene {
             if dx * dx + dy * dy < 30 * 30 {
                 score += 150
                 spark(at: CGPoint(x: cores[i].x, y: cores[i].y), color: cyan, count: 10)
+                SoarAudio.shared.play(.pickup)
                 cores.remove(at: i)
             } else if cores[i].ttl <= 0 { cores.remove(at: i) }
         }
@@ -216,6 +267,7 @@ final class SoarScene: SKScene {
         lives -= 1
         combo = 0
         spark(at: CGPoint(x: player.x, y: player.y), color: .red, count: 30)
+        SoarAudio.shared.play(.hurt)
         if lives <= 0 {
             mode = 3
             banner = "MISSION ENDED"
@@ -264,48 +316,97 @@ final class SoarScene: SKScene {
         arena.addChild(node)
     }
     private func craft(_ fighter: SoarFighter, color: SKColor, isPlayer: Bool) {
-        let x = fighter.x, y = fighter.y
-        let d = fighter.facing
-        let flex: CGFloat = fighter.flapPhase > 0 ? 12 : -5
-        // Original geometric mechanical wingcraft, not likenesses of existing game characters.
-        line([CGPoint(x:x-26,y:y+flex), CGPoint(x:x-10,y:y+7),
-              CGPoint(x:x,y:y+12), CGPoint(x:x+10,y:y+7),
-              CGPoint(x:x+26,y:y+flex)], color: color, width: 2.8)
-        line([CGPoint(x:x-9,y:y+9),CGPoint(x:x+14*d,y:y+2),
-              CGPoint(x:x+2*d,y:y-10), CGPoint(x:x-12*d,y:y-6)],
-             color: color, width: 2.5, closed: true)
-        line([CGPoint(x:x+11*d,y:y+5),CGPoint(x:x+25*d,y:y+9),
-              CGPoint(x:x+14*d,y:y)],color:color,width:2)
-        line([CGPoint(x:x-6,y:y-8),CGPoint(x:x-9,y:y-16),
-              CGPoint(x:x+4,y:y-16)],color:color,width:1.4)
+        let x = fighter.x, y = fighter.y, d = fighter.facing
+        let lift: CGFloat = fighter.flapPhase > 0 ? 16 : -9
+        // Chassis: beaked cockpit, armored fuselage, tail fins and segmented wings.
+        let body: [CGPoint] = [
+            CGPoint(x:x-17*d,y:y+4), CGPoint(x:x-4*d,y:y+12),
+            CGPoint(x:x+13*d,y:y+7), CGPoint(x:x+27*d,y:y+3),
+            CGPoint(x:x+12*d,y:y-4), CGPoint(x:x+2*d,y:y-12),
+            CGPoint(x:x-15*d,y:y-8)]
+        line(body,color:color,width:2.7,closed:true)
+        line([CGPoint(x:x-17*d,y:y+3),CGPoint(x:x-27*d,y:y+14),
+              CGPoint(x:x-23*d,y:y-3)],color:color,width:2,closed:true)
+        let wingLeft = [CGPoint(x:x-8*d,y:y+7),CGPoint(x:x-19*d,y:y+lift),
+                        CGPoint(x:x-32*d,y:y+lift+5),
+                        CGPoint(x:x-23*d,y:y+lift-7),CGPoint(x:x-1*d,y:y+2)]
+        let wingRight = [CGPoint(x:x+1*d,y:y+9),CGPoint(x:x+14*d,y:y+lift+7),
+                         CGPoint(x:x+25*d,y:y+lift+1),CGPoint(x:x+17*d,y:y+lift-7),
+                         CGPoint(x:x+5*d,y:y+3)]
+        line(wingLeft,color:color,width:2.8,closed:true)
+        line(wingRight,color:color,width:2.8,closed:true)
+        line([CGPoint(x:x-19*d,y:y+lift),CGPoint(x:x-10*d,y:y+4),
+              CGPoint(x:x-23*d,y:y+lift-7)],color:color,width:0.9,alpha:0.75)
+        line([CGPoint(x:x+14*d,y:y+lift+7),CGPoint(x:x+10*d,y:y+4),
+              CGPoint(x:x+17*d,y:y+lift-7)],color:color,width:0.9,alpha:0.75)
+        line([CGPoint(x:x-7*d,y:y-9),CGPoint(x:x-10*d,y:y-17),
+              CGPoint(x:x+4*d,y:y-17),CGPoint(x:x+7*d,y:y-9)],
+             color:color,width:1.5)
+        let cockpit = SKShapeNode(ellipseOf: CGSize(width:11,height:7))
+        cockpit.position = CGPoint(x:x+8*d,y:y+5)
+        cockpit.fillColor = isPlayer ? .white : color
+        cockpit.strokeColor = color
+        arena.addChild(cockpit)
         if isPlayer {
-            line([CGPoint(x:x-4,y:y+11),CGPoint(x:x-3,y:y+23),
-                  CGPoint(x:x+5,y:y+23),CGPoint(x:x+6,y:y+12)],color:.white,width:1.5)
+            line([CGPoint(x:x+13*d,y:y),CGPoint(x:x+31*d,y:y),
+                  CGPoint(x:x+31*d,y:y+4)],color:cyan,width:2.5)
+            let engine = SKShapeNode(circleOfRadius:3)
+            engine.position = CGPoint(x:x-14*d,y:y-3)
+            engine.fillColor = amber; engine.strokeColor = .clear
+            arena.addChild(engine)
+        } else {
+            line([CGPoint(x:x-1*d,y:y-6),CGPoint(x:x-1*d,y:y-14)],
+                 color:.red,width:1.5)
         }
     }
     private func redraw() {
         arena.removeAllChildren()
-        // Near-black layered horizon and quiet geometric mountain silhouettes.
-        for layer in 0..<3 {
-            let y: CGFloat = CGFloat(62 + layer * 47)
-            let color = cyan.withAlphaComponent(CGFloat(0.055 + Double(layer) * 0.035))
-            var points: [CGPoint] = []
-            for x in stride(from: 0, through: 1100, by: 55) {
-                let yy = y + sin(CGFloat(x) * 0.014 + CGFloat(layer) * 2.3) * CGFloat(13 + layer * 9)
-                points.append(CGPoint(x: CGFloat(x), y: yy))
+        // Multi-layer original high-altitude atmosphere and distant city machinery.
+        for layer in 0..<4 {
+            let baseY = CGFloat(75 + layer * 62)
+            let depth = CGFloat(layer + 1)
+            let tint = layer.isMultiple(of: 2) ? cyan : SKColor.systemPurple
+            var silhouette: [CGPoint] = [CGPoint(x:0,y:baseY-75)]
+            for x in stride(from: 0, through: 1100, by: 35) {
+                let xx = CGFloat(x)
+                let ripple = sin(xx * 0.009 + depth * 1.8 + worldClock * 0.012 * depth) * (15 + depth * 9)
+                let peak = sin(xx * 0.026 + depth * 2) * (5 + depth * 3)
+                silhouette.append(CGPoint(x:xx,y:baseY+ripple+peak))
             }
-            line(points, color: color, width: 1)
+            silhouette.append(CGPoint(x:1100,y:baseY-75))
+            line(silhouette,color:tint,width:1.15,alpha:0.09+0.035*depth)
         }
-        for x in stride(from: 40, through: 1060, by: 68) {
-            line([CGPoint(x:CGFloat(x),y:40),CGPoint(x:CGFloat(x),y:630)],color:cyan,width:0.5,alpha:0.055)
+        for i in 0..<36 {
+            let x = CGFloat((i * 137 + 23) % 1077)
+            let y = CGFloat(80 + (i * 211 + 39) % 520)
+            let twinkle = 0.13 + 0.13 * sin(worldClock * 0.8 + CGFloat(i))
+            let star = SKShapeNode(circleOfRadius:i.isMultiple(of:7) ? 1.6 : 0.8)
+            star.position = CGPoint(x:x,y:y)
+            star.fillColor = cyan.withAlphaComponent(twinkle)
+            star.strokeColor = .clear
+            arena.addChild(star)
         }
-        for y in stride(from: 55, through: 640, by: 68) {
-            line([CGPoint(x:20,y:CGFloat(y)),CGPoint(x:1080,y:CGFloat(y))],color:cyan,width:0.5,alpha:0.055)
+        for tower in 0..<9 {
+            let x = CGFloat(35+tower*132)
+            let height = CGFloat(43+(tower*37)%92)
+            let c = cyan.withAlphaComponent(0.18)
+            line([CGPoint(x:x,y:33),CGPoint(x:x+12,y:33+height),
+                  CGPoint(x:x+36,y:33+height),CGPoint(x:x+48,y:33)],
+                 color:c,width:1.1)
+            line([CGPoint(x:x+12,y:33+height*0.56),
+                  CGPoint(x:x+36,y:33+height*0.56)],color:c,width:0.8)
+            let lamp = SKShapeNode(circleOfRadius:2.1)
+            lamp.position = CGPoint(x:x+24,y:34+height)
+            lamp.fillColor = amber.withAlphaComponent(0.38)
+            lamp.strokeColor = .clear
+            arena.addChild(lamp)
         }
         for p in SoarRules.platforms {
             line([CGPoint(x:p.minX,y:p.maxY),CGPoint(x:p.maxX,y:p.maxY),
                   CGPoint(x:p.maxX-8,y:p.minY),CGPoint(x:p.minX+8,y:p.minY)],
                  color:cyan,width:2,alpha:0.8,closed:true)
+            line([CGPoint(x:p.minX+8,y:p.minY+4),CGPoint(x:p.maxX-8,y:p.minY+4)],
+                 color:amber,width:0.8,alpha:0.4)
             for n in stride(from: p.minX + 22, to: p.maxX - 10, by: 38) {
                 line([CGPoint(x:n,y:p.minY+3),CGPoint(x:n+12,y:p.maxY-3)],
                      color:cyan,width:0.7,alpha:0.28)
@@ -318,6 +419,15 @@ final class SoarScene: SKScene {
         for e in enemies where e.alive {
             let color: SKColor = e.kind == 2 ? .systemRed : (e.kind == 1 ? amber : .magenta)
             craft(e,color:color,isPlayer:false)
+        }
+        for b in bolts {
+            let tip = CGPoint(x:b.x,y:b.y)
+            line([CGPoint(x:b.x-b.vx.signum()*19,y:b.y),tip],
+                 color:cyan,width:3.5)
+            let tipGlow = SKShapeNode(circleOfRadius:4.5)
+            tipGlow.position = tip; tipGlow.fillColor = .white
+            tipGlow.strokeColor = cyan
+            arena.addChild(tipGlow)
         }
         for core in cores {
             let s = SKShapeNode(circleOfRadius: 9)
