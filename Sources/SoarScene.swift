@@ -4,13 +4,14 @@ import SpriteKit
 final class SoarScene: SKScene {
     private let arena = SKNode()
     private let effects = SKNode()
-    private var player = SoarFighter(x: 550, y: 280)
+    private var player = SoarFighter(x: 550, y: 280, bird: .eagle)
     private var enemies: [SoarFighter] = []
     private struct Bolt { var x: CGFloat; var y: CGFloat; var vx: CGFloat; var ttl: CGFloat }
     private var bolts: [Bolt] = []
     private var firing = false
     private var shotCooldown: CGFloat = 0
     private var worldClock: CGFloat = 0
+    private var nextDripAt: CGFloat = 7
     private var cores: [(x: CGFloat, y: CGFloat, ttl: CGFloat)] = []
     private var wave = 1
     private var score = 0
@@ -77,8 +78,9 @@ final class SoarScene: SKScene {
 
     private func restart() {
         score = 0; lives = 3; wave = 1; combo = 0
-        player = SoarFighter(x: 550, y: 335)
+        player = SoarFighter(x: 550, y: 335, bird: .eagle)
         cores.removeAll(); bolts.removeAll(); shotCooldown = 0; worldClock = 0
+        nextDripAt = CGFloat.random(in: 5...10)
         invulnerable = 1.8
         mode = 1
         nextWaveDelay = -1
@@ -94,6 +96,7 @@ final class SoarScene: SKScene {
             enemy.facing = -side
             enemy.kind = (i + wave) % 5 == 0 ? 2 : ((i + wave) % 3 == 0 ? 1 : 0)
             enemy.vx = -side * CGFloat(65 + wave * 3)
+            enemy.bird = [.falcon, .hawk, .owl][(i + wave) % 3]
             enemies.append(enemy)
         }
         banner = "WAVE \(wave)  //  AIRSPACE CONTESTED"
@@ -123,6 +126,10 @@ final class SoarScene: SKScene {
     }
     private func step(_ dt: CGFloat) {
         worldClock += dt
+        if worldClock >= nextDripAt {
+            SoarAudio.shared.play(.drip)
+            nextDripAt = worldClock + CGFloat.random(in: 7...17)
+        }
         shotCooldown = max(0, shotCooldown - dt)
         if firing && shotCooldown <= 0 { fire() }
         invulnerable = max(0, invulnerable - dt)
@@ -140,12 +147,12 @@ final class SoarScene: SKScene {
             if !enemies[i].alive { continue }
             let dx = player.x - enemies[i].x
             let target: CGFloat = dx > 0 ? 1 : -1
-            let acceleration: CGFloat = enemies[i].kind == 2 ? 390 : 260
+            let acceleration: CGFloat = enemies[i].bird == .falcon ? 395 : (enemies[i].bird == .owl ? 210 : 275)
             enemies[i].vx += target * acceleration * dt
-            let topSpeed: CGFloat = CGFloat(95 + min(wave, 20) * 7 + enemies[i].kind * 35)
+            let topSpeed: CGFloat = CGFloat(95 + min(wave, 20) * 7 + enemies[i].kind * 35) * (enemies[i].bird == .falcon ? 1.22 : (enemies[i].bird == .owl ? 0.80 : 1.0))
             enemies[i].vx = max(-topSpeed, min(topSpeed, enemies[i].vx))
             enemies[i].facing = target
-            let desired = min(SoarRules.height - 50, player.y + CGFloat(enemies[i].kind == 2 ? 75 : 20))
+            let desired = min(SoarRules.height - 80, player.y + CGFloat(enemies[i].bird == .owl ? 95 : (enemies[i].bird == .falcon ? 10 : 40)))
             if enemies[i].y < desired && enemies[i].vy < 90 &&
                 CGFloat.random(in: 0...1) < (enemies[i].kind == 2 ? 2.7 : 1.65) * dt {
                 enemies[i].vy = min(300, max(enemies[i].vy, -75) + CGFloat(185 + enemies[i].kind * 30))
@@ -272,7 +279,7 @@ final class SoarScene: SKScene {
             mode = 3
             banner = "MISSION ENDED"
         } else {
-            player = SoarFighter(x: 550, y: 340)
+            player = SoarFighter(x: 550, y: 340, bird: .eagle)
             invulnerable = 2.3
             banner = "CRAFT LOST  //  RESPAWN"
             bannerTimer = 1.6
@@ -316,100 +323,160 @@ final class SoarScene: SKScene {
         arena.addChild(node)
     }
     private func craft(_ fighter: SoarFighter, color: SKColor, isPlayer: Bool) {
-        let x = fighter.x, y = fighter.y, d = fighter.facing
-        let lift: CGFloat = fighter.flapPhase > 0 ? 16 : -9
-        // Chassis: beaked cockpit, armored fuselage, tail fins and segmented wings.
-        let body: [CGPoint] = [
-            CGPoint(x:x-17*d,y:y+4), CGPoint(x:x-4*d,y:y+12),
-            CGPoint(x:x+13*d,y:y+7), CGPoint(x:x+27*d,y:y+3),
-            CGPoint(x:x+12*d,y:y-4), CGPoint(x:x+2*d,y:y-12),
-            CGPoint(x:x-15*d,y:y-8)]
-        line(body,color:color,width:2.7,closed:true)
-        line([CGPoint(x:x-17*d,y:y+3),CGPoint(x:x-27*d,y:y+14),
-              CGPoint(x:x-23*d,y:y-3)],color:color,width:2,closed:true)
-        let wingLeft = [CGPoint(x:x-8*d,y:y+7),CGPoint(x:x-19*d,y:y+lift),
-                        CGPoint(x:x-32*d,y:y+lift+5),
-                        CGPoint(x:x-23*d,y:y+lift-7),CGPoint(x:x-1*d,y:y+2)]
-        let wingRight = [CGPoint(x:x+1*d,y:y+9),CGPoint(x:x+14*d,y:y+lift+7),
-                         CGPoint(x:x+25*d,y:y+lift+1),CGPoint(x:x+17*d,y:y+lift-7),
-                         CGPoint(x:x+5*d,y:y+3)]
-        line(wingLeft,color:color,width:2.8,closed:true)
-        line(wingRight,color:color,width:2.8,closed:true)
-        line([CGPoint(x:x-19*d,y:y+lift),CGPoint(x:x-10*d,y:y+4),
-              CGPoint(x:x-23*d,y:y+lift-7)],color:color,width:0.9,alpha:0.75)
-        line([CGPoint(x:x+14*d,y:y+lift+7),CGPoint(x:x+10*d,y:y+4),
-              CGPoint(x:x+17*d,y:y+lift-7)],color:color,width:0.9,alpha:0.75)
-        line([CGPoint(x:x-7*d,y:y-9),CGPoint(x:x-10*d,y:y-17),
-              CGPoint(x:x+4*d,y:y-17),CGPoint(x:x+7*d,y:y-9)],
-             color:color,width:1.5)
-        let cockpit = SKShapeNode(ellipseOf: CGSize(width:11,height:7))
-        cockpit.position = CGPoint(x:x+8*d,y:y+5)
-        cockpit.fillColor = isPlayer ? .white : color
-        cockpit.strokeColor = color
-        arena.addChild(cockpit)
+        let x = fighter.x, y = fighter.y, direction = fighter.facing
+        let scale: CGFloat = isPlayer ? 1.16 : 1
+        let flap: CGFloat = fighter.flapPhase > 0 ? 17 : -9
+        func p(_ a: CGFloat, _ b: CGFloat) -> CGPoint {
+            CGPoint(x: x + a * direction * scale, y: y + b * scale)
+        }
+        func detail(_ points: [(CGFloat, CGFloat)], width: CGFloat = 1.4,
+                    alpha: CGFloat = 0.75, closed: Bool = false) {
+            line(points.map { p($0.0, $0.1) }, color: color, width: width,
+                 alpha: alpha, closed: closed)
+        }
+        switch fighter.bird {
+        case .eagle:
+            // Large hooked beak, heavy chest, powerful spread primaries and fan tail.
+            detail([(-15,8),(-28,flap+4),(-40,flap+12),(-37,flap-2),(-27,flap-9),(-8,3)],
+                   width: 3.2,closed:true)
+            detail([(0,10),(17,flap+9),(38,flap+17),(36,flap+2),(23,flap-8),(6,1)],
+                   width: 3.2,closed:true)
+            detail([(-15,5),(-4,14),(12,11),(23,5),(12,-8),(-2,-16),(-17,-9)],
+                   width: 3.1,closed:true)
+            detail([(22,5),(34,6),(31,-1),(25,-4)],width:2.4)
+            detail([(-14,-8),(-26,-16),(-16,-20),(-4,-17),(2,-12)],width:2,closed:true)
+            detail([(-28,flap+4),(-22,2),(-37,flap-2)],alpha:0.65)
+            detail([(17,flap+9),(10,3),(36,flap+2)],alpha:0.65)
+            detail([(-5,-12),(-8,-22),(3,-24)],width:1.5)
+        case .falcon:
+            // Sleek and sharply swept wings for the fastest attack bird.
+            detail([(-10,6),(-31,flap+13),(-36,flap+2),(-21,flap-7),(-1,5)],
+                   width:2.4,closed:true)
+            detail([(2,8),(24,flap+13),(36,flap+10),(22,flap-7),(7,1)],
+                   width:2.4,closed:true)
+            detail([(-13,5),(4,10),(21,5),(15,-5),(0,-12),(-15,-4)],
+                   width:2.2,closed:true)
+            detail([(20,4),(28,3),(23,-2)],width:1.7)
+            detail([(-14,-4),(-25,-15),(-8,-11)],width:1.6)
+        case .hawk:
+            // Medium broad-shouldered hunter.
+            detail([(-14,8),(-29,flap+7),(-34,flap-1),(-20,flap-9),(-4,3)],
+                   width:2.7,closed:true)
+            detail([(0,9),(17,flap+11),(31,flap+5),(25,flap-8),(8,3)],
+                   width:2.7,closed:true)
+            detail([(-13,7),(3,12),(19,6),(21,-3),(5,-13),(-13,-8)],
+                   width:2.6,closed:true)
+            detail([(20,3),(29,4),(23,-3)],width:1.9)
+            detail([(-13,-8),(-24,-17),(-7,-18),(2,-11)],width:1.7)
+        case .owl:
+            // Round face, ear tufts, short beak, and wide rounded wings.
+            detail([(-10,7),(-23,flap+10),(-32,flap+6),(-29,flap-7),(-8,1)],
+                   width:2.7,closed:true)
+            detail([(1,8),(16,flap+12),(28,flap+9),(29,flap-4),(8,0)],
+                   width:2.7,closed:true)
+            let body = SKShapeNode(ellipseOf: CGSize(width:28*scale,height:29*scale))
+            body.position = p(0,-1); body.strokeColor = color
+            body.fillColor = color.withAlphaComponent(0.10)
+            body.lineWidth = 2.4; arena.addChild(body)
+            let face = SKShapeNode(ellipseOf: CGSize(width:20*scale,height:18*scale))
+            face.position = p(12,8); face.strokeColor = color
+            face.fillColor = color.withAlphaComponent(0.13)
+            face.lineWidth = 2; arena.addChild(face)
+            detail([(5,14),(7,22),(12,16),(18,22),(20,12)],width:1.8)
+            detail([(20,6),(25,4),(20,2)],width:1.6)
+            detail([(-8,-12),(-13,-21),(2,-21),(8,-12)],width:1.7)
+            let secondEye = SKShapeNode(circleOfRadius: 2*scale)
+            secondEye.position = p(8,10)
+            secondEye.fillColor = .white; secondEye.strokeColor = .clear
+            arena.addChild(secondEye)
+        }
+        let eye = SKShapeNode(circleOfRadius: isPlayer ? 3.1 : 2.5)
+        eye.position = p(fighter.bird == .owl ? 16 : 10, 7)
+        eye.fillColor = isPlayer ? .white : color
+        eye.strokeColor = .clear
+        arena.addChild(eye)
         if isPlayer {
-            line([CGPoint(x:x+13*d,y:y),CGPoint(x:x+31*d,y:y),
-                  CGPoint(x:x+31*d,y:y+4)],color:cyan,width:2.5)
-            let engine = SKShapeNode(circleOfRadius:3)
-            engine.position = CGPoint(x:x-14*d,y:y-3)
-            engine.fillColor = amber; engine.strokeColor = .clear
-            arena.addChild(engine)
-        } else {
-            line([CGPoint(x:x-1*d,y:y-6),CGPoint(x:x-1*d,y:y-14)],
-                 color:.red,width:1.5)
+            // Muzzle stays outside the bird silhouette.
+            detail([(19,0),(31,0)],width:2,alpha:0.7)
         }
     }
     private func redraw() {
         arena.removeAllChildren()
-        // Multi-layer original high-altitude atmosphere and distant city machinery.
+        // Quiet cave depth: receding rock formations and a distant blue grotto.
+        let grotto = SKShapeNode(ellipseOf: CGSize(width:390,height:240))
+        grotto.position = CGPoint(x:555,y:335)
+        grotto.fillColor = SKColor(red:0.06,green:0.17,blue:0.25,alpha:0.16)
+        grotto.strokeColor = cyan.withAlphaComponent(0.08)
+        grotto.lineWidth = 3
+        arena.addChild(grotto)
         for layer in 0..<4 {
-            let baseY = CGFloat(75 + layer * 62)
             let depth = CGFloat(layer + 1)
             let tint = layer.isMultiple(of: 2) ? cyan : SKColor.systemPurple
-            var silhouette: [CGPoint] = [CGPoint(x:0,y:baseY-75)]
-            for x in stride(from: 0, through: 1100, by: 35) {
+            let alpha: CGFloat = 0.055 + depth * 0.026
+            var ceiling = [CGPoint(x:0,y:SoarRules.height)]
+            var floor = [CGPoint(x:0,y:0)]
+            for x in stride(from: 0, through: 1100, by: 32) {
                 let xx = CGFloat(x)
-                let ripple = sin(xx * 0.009 + depth * 1.8 + worldClock * 0.012 * depth) * (15 + depth * 9)
-                let peak = sin(xx * 0.026 + depth * 2) * (5 + depth * 3)
-                silhouette.append(CGPoint(x:xx,y:baseY+ripple+peak))
+                let upper = CGFloat(690 - 25 - layer*24) -
+                    sin(xx*0.011+depth*1.7)*CGFloat(11+layer*5) -
+                    cos(xx*0.027+depth)*12
+                let lower = CGFloat(18 + layer*14) +
+                    sin(xx*0.013+depth*2.2)*CGFloat(8+layer*5)
+                ceiling.append(CGPoint(x:xx,y:upper))
+                floor.append(CGPoint(x:xx,y:lower))
             }
-            silhouette.append(CGPoint(x:1100,y:baseY-75))
-            line(silhouette,color:tint,width:1.15,alpha:0.09+0.035*depth)
+            ceiling.append(CGPoint(x:1100,y:SoarRules.height))
+            floor.append(CGPoint(x:1100,y:0))
+            line(ceiling,color:tint,width:1.2,alpha:alpha,closed:true)
+            line(floor,color:tint,width:1.2,alpha:alpha,closed:true)
         }
-        for i in 0..<36 {
-            let x = CGFloat((i * 137 + 23) % 1077)
-            let y = CGFloat(80 + (i * 211 + 39) % 520)
-            let twinkle = 0.13 + 0.13 * sin(worldClock * 0.8 + CGFloat(i))
-            let star = SKShapeNode(circleOfRadius:i.isMultiple(of:7) ? 1.6 : 0.8)
-            star.position = CGPoint(x:x,y:y)
-            star.fillColor = cyan.withAlphaComponent(twinkle)
-            star.strokeColor = .clear
-            arena.addChild(star)
+        // Hanging mineral teeth are silhouettes, not collidable obstacles.
+        for n in 0..<15 {
+            let x = CGFloat(24 + n*76)
+            let width = CGFloat(13 + (n*7)%23)
+            let top = CGFloat(668 - (n*13)%33)
+            let point = top - CGFloat(24 + (n*19)%53)
+            line([CGPoint(x:x,y:top),CGPoint(x:x+width*0.46,y:point),
+                  CGPoint(x:x+width,y:top)],color:cyan,width:1.1,alpha:0.16,closed:true)
         }
-        for tower in 0..<9 {
-            let x = CGFloat(35+tower*132)
-            let height = CGFloat(43+(tower*37)%92)
-            let c = cyan.withAlphaComponent(0.18)
-            line([CGPoint(x:x,y:33),CGPoint(x:x+12,y:33+height),
-                  CGPoint(x:x+36,y:33+height),CGPoint(x:x+48,y:33)],
-                 color:c,width:1.1)
-            line([CGPoint(x:x+12,y:33+height*0.56),
-                  CGPoint(x:x+36,y:33+height*0.56)],color:c,width:0.8)
-            let lamp = SKShapeNode(circleOfRadius:2.1)
-            lamp.position = CGPoint(x:x+24,y:34+height)
-            lamp.fillColor = amber.withAlphaComponent(0.38)
-            lamp.strokeColor = .clear
-            arena.addChild(lamp)
+        // Very subtle mineral seams and occasional glow in the far cavern.
+        for n in 0..<22 {
+            let x = CGFloat((n*143+41)%1050)
+            let y = CGFloat(90+(n*227)%480)
+            let glow = SKShapeNode(circleOfRadius:n.isMultiple(of:5) ? 2.1 : 0.9)
+            glow.position = CGPoint(x:x,y:y)
+            glow.fillColor = amber.withAlphaComponent(0.09 + 0.05*sin(worldClock*0.5+CGFloat(n)))
+            glow.strokeColor = .clear
+            arena.addChild(glow)
         }
-        for p in SoarRules.platforms {
-            line([CGPoint(x:p.minX,y:p.maxY),CGPoint(x:p.maxX,y:p.maxY),
-                  CGPoint(x:p.maxX-8,y:p.minY),CGPoint(x:p.minX+8,y:p.minY)],
-                 color:cyan,width:2,alpha:0.8,closed:true)
-            line([CGPoint(x:p.minX+8,y:p.minY+4),CGPoint(x:p.maxX-8,y:p.minY+4)],
-                 color:amber,width:0.8,alpha:0.4)
-            for n in stride(from: p.minX + 22, to: p.maxX - 10, by: 38) {
-                line([CGPoint(x:n,y:p.minY+3),CGPoint(x:n+12,y:p.maxY-3)],
-                     color:cyan,width:0.7,alpha:0.28)
+        for (index, platform) in SoarRules.platforms.enumerated() {
+            let p = platform
+            let teeth = 7 + index % 3
+            let step = p.width / CGFloat(teeth)
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x:p.minX,y:p.maxY))
+            path.addLine(to: CGPoint(x:p.maxX,y:p.maxY))
+            path.addLine(to: CGPoint(x:p.maxX-7,y:p.minY+1))
+            for n in stride(from: teeth-1, through:0, by:-1) {
+                let xx = p.minX + CGFloat(n)*step
+                let depth = CGFloat(15 + (n*17 + index*11)%31)
+                path.addLine(to: CGPoint(x:xx+step*0.67,y:p.minY-depth*0.25))
+                path.addLine(to: CGPoint(x:xx+step*0.42,y:p.minY-depth))
+                path.addLine(to: CGPoint(x:xx+step*0.12,y:p.minY-4))
+            }
+            path.closeSubpath()
+            let rock = SKShapeNode(path:path)
+            rock.fillColor = SKColor(red:0.045,green:0.073,blue:0.092,alpha:0.94)
+            rock.strokeColor = cyan.withAlphaComponent(0.62)
+            rock.lineWidth = 1.45
+            arena.addChild(rock)
+            // The only collision surface remains a clear, perfectly flat ledge top.
+            line([CGPoint(x:p.minX,y:p.maxY),CGPoint(x:p.maxX,y:p.maxY)],
+                 color:cyan,width:3,alpha:0.95)
+            for n in 0..<5 {
+                let xx = p.minX + CGFloat(n+1)*p.width/6
+                line([CGPoint(x:xx-6,y:p.minY-5),CGPoint(x:xx+10,y:p.minY-11-CGFloat((n+index)%3)*2)],
+                     color:amber,width:0.8,alpha:0.32)
             }
         }
         line([CGPoint(x:0,y:31),CGPoint(x:1100,y:31)],color:.red,width:2,alpha:0.42)
