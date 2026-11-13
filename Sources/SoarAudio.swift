@@ -29,6 +29,7 @@ final class SoarAudio {
         case .pickup: seconds = 0.22; frequency = 850
         case .hurt: seconds = 0.55; frequency = 210
         case .wave: seconds = 0.38; frequency = 380
+        case .drip: seconds = 0.28; frequency = 840
         }
         let frames = AVAudioFrameCount(format.sampleRate * seconds)
         guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames),
@@ -41,15 +42,16 @@ final class SoarAudio {
             switch effect {
             case .shoot: sweep = 1.7 - progress * 1.4
             case .pickup, .wave: sweep = 0.65 + progress * 1.25
+            case .drip: sweep = 1.12 - progress * 0.72
             default: sweep = 1.2 - progress * 0.75
             }
             let p = 2 * Double.pi * frequency * t * sweep
             let grit = sin(p * 2.03) * 0.22 + sin(p * 3.97) * 0.09
             let envelope = min(1, t * 130) * pow(max(0, 1 - progress), 1.8)
-            channel[i] = Float((sin(p) + grit) * envelope * 0.15)
+            channel[i] = Float((sin(p) + (effect == .drip ? sin(p*2.3)*0.11 : grit)) * envelope * (effect == .drip ? 0.025 : 0.15))
         }
         player.scheduleBuffer(buffer, completionHandler: nil)
         if !player.isPlaying { player.play() }
     }
-    enum Effect { case flap, shoot, hit, destroy, pickup, hurt, wave }
+    enum Effect { case flap, shoot, hit, destroy, pickup, hurt, wave, drip }
 }
