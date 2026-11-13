@@ -1,0 +1,11 @@
+name: macOS Build
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Vector Soar
+        run: xcodebuild -project VectorSoar.xcodeproj -scheme VectorSoar -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
