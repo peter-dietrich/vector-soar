@@ -5,12 +5,12 @@ An original, Joust-inspired aerial combat arcade game for macOS and the Fun City
 ## First playable prototype
 
 - Tap **Space** to flap; use **Left / Right** or **A / D** to steer.
-- Hold **Shift** for a gravity-assisted dive.
+- Hold **F** to fire a forward energy blaster with automatic repeat; bolts travel in the current facing direction and destroy enemies.\n- Hold **Shift** for a gravity-assisted dive.
 - Hit enemy craft from above to defeat them and raise combo multipliers.
 - Collect dropped energy cores for bonus points.
 - Survive enemy waves; three lives; escalating enemy speed and elite flyers.
 - **Return** starts/restarts, **P** pauses.
-- Right-side flight telemetry, faint environmental parallax, responsive particle explosions and persistent local high score.
+- Right-side flight telemetry, faint environmental parallax, responsive particle explosions, original synthesized sound effects, more detailed mechanical craft, layered skyline and mountain silhouettes, and persistent local high score.
 
 ## Build and play
 
