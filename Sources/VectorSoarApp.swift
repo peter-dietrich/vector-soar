@@ -29,7 +29,7 @@ struct SoarView: View {
             SpriteView(scene: scene, options: [.ignoresSiblingOrder])
                 .background(Color(red: 0.015, green: 0.025, blue: 0.07))
             HStack {
-                Text("← →  STEER     SPACE  FLAP     SHIFT  DIVE     RETURN  START     P  PAUSE")
+                Text("← →  STEER     SPACE  FLAP     F  FIRE     SHIFT  DIVE     RETURN  START     P  PAUSE")
                 Spacer()
                 Text("ALTITUDE WINS")
             }
