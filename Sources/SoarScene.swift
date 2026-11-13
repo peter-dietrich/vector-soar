@@ -297,10 +297,10 @@ final class SoarScene: SKScene {
             line(points, color: color, width: 1)
         }
         for x in stride(from: 40, through: 1060, by: 68) {
-            line([CGPoint(x:x,y:40),CGPoint(x:x,y:630)],color:cyan,width:0.5,alpha:0.055)
+            line([CGPoint(x:CGFloat(x),y:40),CGPoint(x:CGFloat(x),y:630)],color:cyan,width:0.5,alpha:0.055)
         }
         for y in stride(from: 55, through: 640, by: 68) {
-            line([CGPoint(x:20,y:y),CGPoint(x:1080,y:y)],color:cyan,width:0.5,alpha:0.055)
+            line([CGPoint(x:20,y:CGFloat(y)),CGPoint(x:1080,y:CGFloat(y))],color:cyan,width:0.5,alpha:0.055)
         }
         for p in SoarRules.platforms {
             line([CGPoint(x:p.minX,y:p.maxY),CGPoint(x:p.maxX,y:p.maxY),
