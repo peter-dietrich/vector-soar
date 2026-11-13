@@ -174,7 +174,7 @@ final class SoarScene: SKScene {
                     spark(at: CGPoint(x: enemies[i].x, y: enemies[i].y),
                           color: amber, count: 25)
                     SoarAudio.shared.play(.destroy)
-                    banner = "TARGET DOWN  +\\(points)"
+                    banner = "TARGET DOWN  +\(points)"
                     bannerTimer = 0.7
                     impact = true
                     break
