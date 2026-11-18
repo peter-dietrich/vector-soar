@@ -10,7 +10,10 @@ struct VectorSoarApp: App {
                 .frame(minWidth: 950, minHeight: 650)
         }
         .defaultSize(width: 1300, height: 790)
-        .commands { CommandGroup(replacing: .newItem) {} GameHelpCommands() }
+        .commands {
+            CommandGroup(replacing: .newItem) {}
+            GameHelpCommands()
+        }
     }
 }
 
