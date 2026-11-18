@@ -9,3 +9,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Build Vector Soar
         run: xcodebuild -project VectorSoar.xcodeproj -scheme VectorSoar -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
+      - name: Verify bundled macOS app icon
+        run: bash scripts/check-app-branding.sh VectorSoar
