@@ -3,6 +3,7 @@ import SpriteKit
 
 @main
 struct VectorSoarApp: App {
+    @NSApplicationDelegateAdaptor(ArcadeIconAppDelegate.self) private var iconDelegate
     var body: some Scene {
         WindowGroup("Vector Soar") {
             SoarView()
