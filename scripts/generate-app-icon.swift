@@ -86,6 +86,15 @@ func render(_ pixels:Int) -> Data {
   draw([CGPoint(x:172,y:230),CGPoint(x:172,y:195)],color:primary,width:10)
   let coin=NSBezierPath(ovalIn:CGRect(x:231,y:116,width:50,height:50))
   coin.lineWidth=9;secondary.setStroke();coin.stroke()
+ } else if game == "vector-soar" {
+  draw([CGPoint(x:255,y:401),CGPoint(x:209,y:286),CGPoint(x:100,y:238),CGPoint(x:177,y:202),CGPoint(x:255,y:135),CGPoint(x:333,y:202),CGPoint(x:413,y:238),CGPoint(x:302,y:286)],color:primary,width:12,closed:true)
+  draw([CGPoint(x:213,y:192),CGPoint(x:255,y:135),CGPoint(x:297,y:192)],color:secondary,width:6)
+  draw([CGPoint(x:104,y:133),CGPoint(x:181,y:133)],color:primary.withAlphaComponent(0.6),width:6)
+  draw([CGPoint(x:330,y:133),CGPoint(x:407,y:133)],color:primary.withAlphaComponent(0.6),width:6)
+ } else if game == "vector-aces" {
+  draw([CGPoint(x:256,y:425),CGPoint(x:234,y:330),CGPoint(x:128,y:286),CGPoint(x:125,y:242),CGPoint(x:222,y:259),CGPoint(x:222,y:159),CGPoint(x:180,y:122),CGPoint(x:183,y:103),CGPoint(x:256,y:139),CGPoint(x:329,y:103),CGPoint(x:332,y:122),CGPoint(x:290,y:159),CGPoint(x:290,y:259),CGPoint(x:389,y:242),CGPoint(x:384,y:286),CGPoint(x:278,y:330)],color:primary,width:11,closed:true)
+  draw([CGPoint(x:256,y:397),CGPoint(x:256,y:166)],color:secondary,width:6)
+  let p=NSBezierPath(ovalIn:CGRect(x:243,y:298,width:26,height:26));secondary.setFill();p.fill()
  } else {
   let image=NSImage(systemSymbolName:symbol,accessibilityDescription:nil)!
    .withSymbolConfiguration(.init(pointSize:287,weight:.medium))!
